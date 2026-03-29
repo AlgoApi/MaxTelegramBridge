@@ -31,7 +31,7 @@ async def get_routing_info(max_client: MaxClient, msg: max_types.Message, user: 
         first_name = None
         if user.names:
             first_name = user.names[0].name
-        prefix = f"👥 <b>Группа: {chat.title}</b>\n👤 <b>{first_name}</b>:\n\n"
+        prefix = f"👥 <b>Оригинальный группа: <a href='{chat.link}'>{chat.title}</a></b>\n👤 <b>{first_name}</b>:\n\n"
         if chat_id in SPECIFIC_MAX_GROUPS:
             logger.info(f"{msg.id} from {chat_id} recognized for SPECIFIC chanel")
             target = TG_CHANNEL_SPECIFIC
@@ -42,7 +42,7 @@ async def get_routing_info(max_client: MaxClient, msg: max_types.Message, user: 
 
     elif chat.type == "CHANNEL":
         logger.info(f"{msg.id} from {chat_id} recognized as channel")
-        prefix = f"📢 <b>Канал: {chat.title}</b>\n\n"
+        prefix = f"📢 <b>Оригинальный канал: <a href='{chat.link}'>{chat.title}</a></b>\n\n"
         if chat_id in SPECIFIC_MAX_CHANNELS:
             logger.info(f"{msg.id} from {chat_id} recognized for SPECIFIC chanel")
             target = TG_CHANNEL_SPECIFIC
