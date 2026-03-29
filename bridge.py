@@ -71,7 +71,7 @@ async def fetch_history(client: PyroClient, message):
             logger.info("messages not found or max_chat_id invalid")
             return
 
-        for msg in reversed(history):
+        for msg in history:
             msg.chat_id = max_chat_id
             await on_new_message(msg)
             await asyncio.sleep(0.5)
