@@ -1,6 +1,5 @@
 import io
 import logging
-import mimetypes
 from urllib.parse import unquote
 import filetype
 
@@ -31,7 +30,7 @@ async def get_routing_info(max_client: MaxClient, msg: max_types.Message, user: 
         first_name = None
         if user.names:
             first_name = user.names[0].name
-        prefix = f"👥 <b>Оригинальный группа: <a href='{chat.link}'>{chat.title}</a></b>\n👤 <b>{first_name}</b>:\n\n"
+        prefix = f"👥 <b>Оригинальная группа: <a href='{chat.link}'>{chat.title}</a></b>\n👤 <b>{first_name}</b>:\n\n"
         if chat_id in SPECIFIC_MAX_GROUPS:
             logger.info(f"{msg.id} from {chat_id} recognized for SPECIFIC chanel")
             target = TG_CHANNEL_SPECIFIC
