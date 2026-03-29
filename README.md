@@ -64,6 +64,8 @@
 ```env
 CURRENT_MAX_USERID=ваш id из Макса, пишется при запуске
 MAX_PHONE=ваш номер телефона слитно без плюса
+TG_ADMIN_USERID=ваш id из телеграма
+
 REDIS_HOST=хост до сервера redis
 REDIS_PASSWORD=пароль от redis
 
