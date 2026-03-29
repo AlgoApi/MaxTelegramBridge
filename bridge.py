@@ -1,13 +1,19 @@
 import asyncio
+import io
 import logging
+from typing import Union, List
 
+from pyrogram import Client as PyroClient, filters as tg_filters
 import aiohttp
 from pymax import types as max_types
 from pymax.static.enum import MessageStatus
+from pymax.types import AudioAttach
+from pyrogram.handlers import MessageHandler as TG_MessageHandler
+from pyrogram.types import InputMediaPhoto, InputMediaVideo, InputMediaDocument
 
-from config import CURRENT_MAX_USERID
-from init_clients import max_client, tg_app
-from pymax import MaxClient
+from config import CURRENT_MAX_USERID, SUPPORTED_ATTACHES, TG_CHANNEL_MAIN, TG_CHANNEL_SPECIFIC, TG_API_ID, TG_API_HASH, \
+    TG_BOT_TOKEN
+from init_clients import max_client
 
 from redis_db import msg_map
 from utils import get_routing_info, prepare_media_item
@@ -15,22 +21,86 @@ from utils import get_routing_info, prepare_media_item
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("MaxTelegramBridge")
 
+tg_app: PyroClient
+
+async def whoami(client: PyroClient, message):
+    chat = message.chat
+    text = (
+        f"**CHAT INFO**\n"
+        f"ID: `{chat.id}`\n"
+        f"Type: `{chat.type}`\n"
+        f"Title: {chat.title or 'N/A'}\n"
+        f"Reply ID: {message.reply_to_message_id or 'None'}"
+    )
+    await message.reply_text(text)
+
+    if message.video:
+        await message.reply_text(f"🎬 `video_id`: `{message.video.file_id}`")
+    if message.photo:
+        await message.reply_text(f"🖼 `photo_id`: `{message.photo.file_id}`")
+    if message.animation:
+        await message.reply_text(f"🎞 `gif_id`: `{message.animation.file_id}`")
+
+    try:
+        await tg_app.get_chat(TG_CHANNEL_MAIN)
+    except Exception as e:
+        logger.error(f"Cannot resolve TG_CHANNEL_MAIN: {e}\n Try send random message to chanel")
+    try:
+        await tg_app.get_chat(TG_CHANNEL_SPECIFIC)
+    except Exception as e:
+        logger.error(f"Cannot resolve TG_CHANNEL_SPECIFIC: {e}\n Try send random message to chanel")
+
+
+from pyrogram.handlers import MessageHandler
+from pyrogram import filters
+
+
+async def fetch_history(client: PyroClient, message):
+    cmd_args = message.command
+    if len(cmd_args) < 2:
+        await message.reply_text("❌ Использование: `/fetch <max_chat_id>`")
+        return
+
+    try:
+        max_chat_id = int(cmd_args[1])
+        logger.info(f"fetching last 10 message from {max_chat_id}")
+
+        history = await max_client.fetch_history(max_chat_id, backward=10)
+
+        if not history:
+            logger.info("messages not found or max_chat_id invalid")
+            return
+
+        for msg in reversed(history):
+            await on_new_message(msg)
+            await asyncio.sleep(0.5)
+
+        logger.info(f"forwarded {len(history)} messages")
+
+    except ValueError:
+        logger.error("invalid max_chat_id")
+    except Exception as e:
+        logger.error(f"error on fetch: {e}")
 
 @max_client.on_message()
 async def on_new_message(message: max_types.Message):
     msg_user = await max_client.get_user(message.sender)
+    logger.info(f"got message {message.id} from {msg_user.id} in {message.chat_id}")
     if msg_user.id == CURRENT_MAX_USERID:
+        logger.info("this message is message from owner, skip...")
         return
     target_channel, prefix = await get_routing_info(max_client, message, msg_user)
 
     if message.status == MessageStatus.REMOVED:
+        logger.info(f"get mappings for {message.chat_id} in {message.id} for delete")
         tg_ids = await msg_map.get_mapping(message.chat_id, message.id)
         if tg_ids:
             await tg_app.delete_messages(target_channel, tg_ids)
-            logger.info(f"Сообщение {message.id} удалено в TG")
+            logger.info(f"Message {message.id} in {message.chat_id} deleted in telegram")
         return
 
     if message.status == MessageStatus.EDITED:
+        logger.info(f"get mappings for {message.chat_id} in {message.id} for edit")
         tg_ids = await msg_map.get_mapping(message.chat_id, message.id)
         if tg_ids:
             new_text = f"{prefix}{message.text or ''}"
@@ -38,54 +108,112 @@ async def on_new_message(message: max_types.Message):
                 await tg_app.edit_message_text(target_channel, tg_ids[0], new_text)
             except Exception:
                 await tg_app.edit_message_caption(target_channel, tg_ids[0], new_text)
+            logger.info(f"Message {message.id} in {message.chat_id} redacted in telegram")
         return
 
     full_text = f"{prefix}{message.text or ''}"
     sent_messages = []
 
-    if message.attaches:
-        media_list = []
+    if message.attaches and any(isinstance(a, SUPPORTED_ATTACHES) for a in message.attaches):
+        media_list: List[Union[InputMediaPhoto, InputMediaVideo, InputMediaDocument]] = []
+        media_list_data: List[io.BytesIO] = []
+        voice_list = []
         async with aiohttp.ClientSession() as session:
             for attach in message.attaches:
-                media = await prepare_media_item(max_client, message.chat_id, message.id, attach, session)
-                if media:
-                    media_list.append(media)
+                if isinstance(attach, AudioAttach):
+                    try:
+                        async with session.get(attach.url) as resp:
+                            resp.raise_for_status()
+                            bio = io.BytesIO(await resp.read())
+
+                            bio.name = f"voice{attach.audio_id}.ogg"
+                            voice_list.append(bio)
+                    except Exception as e:
+                        logger.error(f"error download voice: {e}")
+                else:
+                    media = await prepare_media_item(max_client, message.chat_id, message.chat_id, attach, session)
+                    if media:
+                        media, data = media
+                        media_list_data.append(data)
+                        media_list.append(media)
 
         if media_list:
-            media_list[0].caption = full_text
-            res = await tg_app.send_media_group(target_channel, media_list[:10])
-            sent_messages = [m.id for m in res]
+            logger.info(f"detected media in message {message.id} in {message.chat_id}")
+            logger.debug(media_list)
+            try:
+                media_list[0].caption = full_text
+                res = await tg_app.send_media_group(target_channel, media_list[:10])
+                sent_messages = [m.id for m in res]
+            except Exception as e:
+                logger.error(f"Error send media {media_list[:10]}: {e}")
+            finally:
+                for media in media_list_data:
+                    if not media.closed:
+                        media.close()
+            logger.info(f"message send_media_group to telegram {sent_messages}")
+
+        for voice_bio in voice_list:
+            try:
+                res = await tg_app.send_voice(
+                    chat_id=target_channel,
+                    voice=voice_bio,
+                    caption=full_text
+                )
+                sent_messages.append(res.id)
+                logger.info(f"message send_voice to telegram {res.id}")
+                full_text = ""
+            except Exception as e:
+                logger.error(f"Error send voice message: {e}")
+            finally:
+                if not voice_bio.closed:
+                    voice_bio.close()
     else:
-        # Просто текстовое сообщение
-        res = await tg_app.send_message(target_channel, full_text, disable_web_page_preview=True)
-        sent_messages = [res.id]
+        try:
+            res = await tg_app.send_message(target_channel, full_text, disable_web_page_preview=True)
+            sent_messages = [res.id]
+            logger.info(f"message send to telegram {res.id}")
+        except Exception as e:
+            logger.error(f"Error message send message: {e}")
 
     # Сохраняем связку в Redis для будущего Edit/Delete
     if sent_messages:
+        logger.info(f"save message mappings")
         await msg_map.save_mapping(message.chat_id, message.id, sent_messages)
 
 
 @max_client.on_start
 async def on_start() -> None:
-    print(f"Клиент запущен. Ваш ID: {max_client.me.id}")
+    logger.info(f"Max client started. Your ID: {max_client.me.id}")
+    try:
+        await tg_app.get_chat(TG_CHANNEL_MAIN)
+    except Exception as e:
+        logger.error(f"Cannot resolve TG_CHANNEL_MAIN: {e}\n Try send random message to chanel")
+    try:
+        await tg_app.get_chat(TG_CHANNEL_SPECIFIC)
+    except Exception as e:
+        logger.error(f"Cannot resolve TG_CHANNEL_SPECIFIC: {e}\n Try send random message to chanel")
 
-    # Получение истории
-    history = await max_client.fetch_history(chat_id=257786917)
-    print("Последние сообщения из чата 257786917:")
-    for m in history:
-        print(f"- {m.text}")
 
 async def start_bridge():
-    await tg_app.start()
-    logger.info("Telegram клиент запущен.")
+    global tg_app
+    tg_app = PyroClient("sessions/tg_session", api_id=TG_API_ID, api_hash=TG_API_HASH, bot_token=TG_BOT_TOKEN)
+
+    try:
+        tg_app.add_handler(TG_MessageHandler(whoami, tg_filters.command("whoami")))
+        tg_app.add_handler(MessageHandler(fetch_history, filters.command("fetch") & filters.user(907467694)))
+        await tg_app.start()
+    except Exception as e:
+        logger.error(f"Error in telegram bot: {e}")
+    logger.info("telegram bot started.")
 
     try:
         await max_client.start()
     except Exception as e:
-        logger.error(f"Ошибка в работе моста: {e}")
+        logger.error(f"Error in Max UserBot: {e}")
     finally:
+        logger.info("Try to close telegram bot safely")
         await tg_app.stop()
-        pass
+        await asyncio.sleep(3)
 
 
 if __name__ == "__main__":

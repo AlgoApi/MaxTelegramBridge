@@ -1,6 +1,9 @@
 # --- Конфигурация ---
 import os
 
+from pymax import PhotoAttach, VideoAttach, FileAttach
+from pymax.types import AudioAttach
+
 CURRENT_MAX_USERID = int(os.getenv("CURRENT_MAX_USERID", "0"))
 MAX_PHONE = os.getenv("MAX_PHONE", "")
 
@@ -13,3 +16,5 @@ TG_CHANNEL_SPECIFIC = int(os.getenv("TG_CHANNEL_SPECIFIC", "0"))
 
 SPECIFIC_MAX_GROUPS = os.getenv("SPECIFIC_MAX_GROUPS", "").split(",")
 SPECIFIC_MAX_CHANNELS = os.getenv("SPECIFIC_MAX_CHANNELS", "").split(",")
+
+SUPPORTED_ATTACHES = (PhotoAttach, VideoAttach, FileAttach, AudioAttach)

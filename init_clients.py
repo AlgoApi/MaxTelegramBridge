@@ -1,5 +1,4 @@
 import logging
-from pyrogram import Client as PyroClient
 import pymax.mixins as mixins
 import qrcode
 
@@ -36,6 +35,3 @@ max_client = MaxClient(
     reconnect=True,
     reconnect_delay=5.0,
 )
-
-tg_app: PyroClient
-tg_app = PyroClient("sessions/tg_session", api_id=TG_API_ID, api_hash=TG_API_HASH, bot_token=TG_BOT_TOKEN)

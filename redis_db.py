@@ -3,7 +3,7 @@ import os
 import redis.asyncio as redis
 
 class RedisMapping:
-    def __init__(self, host='localhost', port=6379, password='0', db=0):
+    def __init__(self, password, host='localhost', port=6379, db=0):
         self.client = redis.Redis(host=host, port=port, db=db, decode_responses=True, password=password)
         self.ttl = 86400  # 24 часа
 
@@ -20,4 +20,4 @@ class RedisMapping:
         return None
 
 # Инициализируем в главном файле
-msg_map = RedisMapping(host=os.getenv("REDIS_HOST", "localhost"), password=os.getenv("REDIS_PASSWORD", '0'))
+msg_map = RedisMapping(host=os.getenv("REDIS_HOST", "localhost"), password=os.getenv("REDIS_PASSWORD"))
