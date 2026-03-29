@@ -16,8 +16,8 @@ logger = logging.getLogger("MaxTelegramBridge")
 
 
 @max_client.on_message()
-async def on_new_message(client: MaxClient, message: max_types.Message):
-    target_channel, prefix = get_routing_info(client, message)
+async def on_new_message(message: max_types.Message):
+    target_channel, prefix = get_routing_info(max_client, message)
 
     if message.status == MessageStatus.REMOVED:
         tg_ids = await msg_map.get_mapping(message.chat_id, message.id)
