@@ -38,7 +38,7 @@ async def get_routing_info(max_client: MaxClient, msg: max_types.Message, user: 
             target = TG_CHANNEL_MAIN
         return target, prefix
 
-    elif chat.type == "channel":
+    elif chat.type == "CHANNEL":
         logger.info(f"{msg.id} from {chat_id} recognized as channel")
         prefix = f"📢 <b>Канал: {chat.title}</b>\n\n"
         if chat_id in SPECIFIC_MAX_CHANNELS:
