@@ -2,7 +2,7 @@ FROM ghcr.io/astral-sh/uv:python3.12-alpine AS builder
 
 WORKDIR /app
 
-RUN apk add --no-cache git
+RUN apk add --no-cache git build-base python3-dev libffi-dev
 # --------------------------
 
 ENV UV_COMPILE_BYTECODE=1
