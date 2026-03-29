@@ -12,7 +12,7 @@ from pyrogram.handlers import MessageHandler as TG_MessageHandler
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, InputMediaDocument
 
 from config import CURRENT_MAX_USERID, SUPPORTED_ATTACHES, TG_CHANNEL_MAIN, TG_CHANNEL_SPECIFIC, TG_API_ID, TG_API_HASH, \
-    TG_BOT_TOKEN
+    TG_BOT_TOKEN, HEADERS
 from init_clients import max_client
 
 from redis_db import msg_map
@@ -124,7 +124,7 @@ async def on_new_message(message: max_types.Message):
         media_list: List[Union[InputMediaPhoto, InputMediaVideo, InputMediaDocument]] = []
         media_list_data: List[io.BytesIO] = []
         voice_list = []
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(headers=HEADERS) as session:
             for attach in message.attaches:
                 if isinstance(attach, AudioAttach):
                     try:
