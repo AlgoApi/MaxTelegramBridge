@@ -62,8 +62,10 @@
 Настрой файлы для доступа к API:
 
 ```env
+MAX_PHONE=
 MAX_PHONE=ваш номер телефона слитно без плюса
 REDIS_HOST=
+REDIS_PASSWORD=
 
 # Telegram (регистрация на my.telegram.org)
 TG_API_ID=1234567

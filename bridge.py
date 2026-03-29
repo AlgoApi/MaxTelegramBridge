@@ -5,6 +5,7 @@ import aiohttp
 from pymax import types as max_types
 from pymax.static.enum import MessageStatus
 
+from config import CURRENT_MAX_USERID
 from init_clients import max_client, tg_app
 from pymax import MaxClient
 
@@ -17,6 +18,9 @@ logger = logging.getLogger("MaxTelegramBridge")
 
 @max_client.on_message()
 async def on_new_message(message: max_types.Message):
+    msg_user = await max_client.get_user(message.sender)
+    if msg_user.id == CURRENT_MAX_USERID:
+        return
     target_channel, prefix = await get_routing_info(max_client, message)
 
     if message.status == MessageStatus.REMOVED:

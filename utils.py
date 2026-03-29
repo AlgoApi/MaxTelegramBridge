@@ -4,26 +4,37 @@ from io import BytesIO
 import aiohttp
 from pymax import MaxClient, PhotoAttach, VideoAttach, FileAttach, ControlAttach
 from pymax import types as max_types
-from pymax.types import StickerAttach, AudioAttach, ContactAttach
+from pymax.types import StickerAttach, AudioAttach, ContactAttach, User
 from pyrogram import Client as PyroClient
 
 from config import TG_CHANNEL_MAIN, SPECIFIC_MAX_GROUPS, TG_CHANNEL_SPECIFIC, SPECIFIC_MAX_CHANNELS
 
 logger = logging.getLogger("MaxTelegramBridge")
 
-async def get_routing_info(max_client: MaxClient, msg: max_types.Message):
+async def get_routing_info(max_client: MaxClient, msg: max_types.Message, user: User):
     """Определяет целевой канал и формирует подпись."""
     chat_id = str(msg.chat_id)
     chat = await max_client.get_chat(msg.chat_id)
-    sender = msg.sender
 
     # Определяем префикс в зависимости от типа чата
     if chat.type == "DIALOG":
-        prefix = f"👤 <b>ЛС от: {sender}</b>\n\n"
+        sender = await max_client.get_user(msg.sender)
+        username = None
+        first_name = None
+        if sender.names:
+            username = sender.names[0].name
+            first_name = sender.names[0].first_name
+        prefix = f"👤 <b>ЛС от {first_name}({username}):</b>\n\n"
         return TG_CHANNEL_MAIN, prefix
 
     elif chat.type == "CHAT":
-        prefix = f"👥 <b>Группа: {chat.title}</b>\n👤 <b>{sender}</b>:\n\n"
+        sender = await max_client.get_user(msg.sender)
+        username = None
+        first_name = None
+        if sender.names:
+            username = sender.names[0].name
+            first_name = sender.names[0].first_name
+        prefix = f"👥 <b>Группа: {chat.title}</b>\n👤 <b>{first_name}</b>({username}):\n\n"
         target = TG_CHANNEL_SPECIFIC if chat_id in SPECIFIC_MAX_GROUPS else TG_CHANNEL_MAIN
         return target, prefix
 

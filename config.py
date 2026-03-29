@@ -1,6 +1,7 @@
 # --- Конфигурация ---
 import os
 
+CURRENT_MAX_USERID = int(os.getenv("CURRENT_MAX_USERID", "0"))
 MAX_PHONE = os.getenv("MAX_PHONE", "")
 
 TG_API_ID = int(os.getenv("TG_API_ID", "0"))
