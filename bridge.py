@@ -86,17 +86,16 @@ async def fetch_history(client: PyroClient, message):
 
 @max_client.on_message()
 async def on_new_message(message: max_types.Message):
+    chat_obj = await max_client.get_chat(message.chat_id)
     if message.sender:
         msg_user = await max_client.get_user(message.sender)
     else:
-        chat_obj = await max_client.get_chat(message.chat_id)
         msg_user = User(0, 0, message.chat_id, [Names(chat_obj.title, None, None, None)])
-        del chat_obj
     logger.info(f"got message {message.id} from {msg_user.id} in {message.chat_id}")
     if msg_user.id == CURRENT_MAX_USERID:
         logger.info("this message is message from owner, skip...")
         return
-    target_channel, prefix = await get_routing_info(max_client, message, msg_user)
+    target_channel, prefix = await get_routing_info(max_client, message, msg_user, chat_obj)
 
     if message.status == MessageStatus.REMOVED:
         logger.info(f"get mappings for {message.chat_id} in {message.id} for delete")

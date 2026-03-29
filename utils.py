@@ -4,17 +4,16 @@ from io import BytesIO
 import aiohttp
 from pymax import MaxClient, PhotoAttach, VideoAttach, FileAttach, ControlAttach
 from pymax import types as max_types
-from pymax.types import StickerAttach, AudioAttach, ContactAttach, User
+from pymax.types import StickerAttach, AudioAttach, ContactAttach, User, Chat
 from pyrogram import Client as PyroClient
 
 from config import TG_CHANNEL_MAIN, SPECIFIC_MAX_GROUPS, TG_CHANNEL_SPECIFIC, SPECIFIC_MAX_CHANNELS
 
 logger = logging.getLogger("MaxTelegramBridge")
 
-async def get_routing_info(max_client: MaxClient, msg: max_types.Message, user: User):
+async def get_routing_info(max_client: MaxClient, msg: max_types.Message, user: User, chat: Chat):
     """Определяет целевой канал и формирует подпись."""
     chat_id = str(msg.chat_id)
-    chat = await max_client.get_chat(msg.chat_id)
 
     # Определяем префикс в зависимости от типа чата
     if chat.type == "DIALOG":
@@ -50,7 +49,7 @@ async def get_routing_info(max_client: MaxClient, msg: max_types.Message, user: 
             target = TG_CHANNEL_MAIN
         return target, prefix
 
-    logger.warning(f"{msg.id} from {chat_id} not recognized")
+    logger.warning(f"{msg.id} from {chat_id} not recognized {chat.type} {chat.title}")
     return TG_CHANNEL_MAIN, "❓ <b>Источник неизвестен</b>\n\n"
 
 
