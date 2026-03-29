@@ -21,7 +21,7 @@ async def on_new_message(message: max_types.Message):
     msg_user = await max_client.get_user(message.sender)
     if msg_user.id == CURRENT_MAX_USERID:
         return
-    target_channel, prefix = await get_routing_info(max_client, message)
+    target_channel, prefix = await get_routing_info(max_client, message, msg_user)
 
     if message.status == MessageStatus.REMOVED:
         tg_ids = await msg_map.get_mapping(message.chat_id, message.id)
