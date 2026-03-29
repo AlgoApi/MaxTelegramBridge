@@ -2,6 +2,7 @@ import io
 import logging
 import mimetypes
 from urllib.parse import unquote
+import filetype
 
 from pymax import MaxClient, PhotoAttach, VideoAttach, FileAttach
 from pymax import types as max_types
@@ -53,23 +54,29 @@ async def get_routing_info(max_client: MaxClient, msg: max_types.Message, user: 
     logger.warning(f"{msg.id} from {chat_id} not recognized {chat.type} {chat.title}")
     return TG_CHANNEL_MAIN, "❓ <b>Источник неизвестен</b>\n\n"
 
-def get_file_name(resp, file_id):
-    raw_filename = resp.headers.get("X-File-Name")
-    content_type = resp.headers.get("Content-Type")
-
-    if raw_filename:
-        clean_name = unquote(raw_filename)
+def get_file_name(resp, file_bytes, file_id, fallback_extension:str):
+    raw_name = resp.headers.get("X-File-Name")
+    clean_name = ""
+    if raw_name:
+        clean_name = unquote(raw_name)
     else:
-        clean_name = f"file_{file_id}"
-    extension = mimetypes.guess_extension(content_type.split(';')[0]) or ".pdf"
-    return f"{clean_name}{extension}"
+        kind = filetype.guess(file_bytes)
+        if kind:
+            ext = f".{kind.extension}"
+        else:
+            ext = fallback_extension
+
+        clean_name = f"file_{file_id}{ext}"
+
+    return clean_name
 
 async def prepare_media_item(max_client, chat_id, msg_id, attach, session):
     if isinstance(attach, PhotoAttach):
         logger.info(f"attach in {msg_id} from {chat_id} recognized as PhotoAttach")
         async with session.get(attach.base_url) as resp:
-            bio = io.BytesIO(await resp.read())
-            bio.name = get_file_name(resp, attach.photo_id)
+            file_bytes = await resp.read()
+            bio = io.BytesIO(file_bytes)
+            bio.name = get_file_name(resp, file_bytes, attach.photo_id, ".jpg")
             return InputMediaPhoto(bio), bio
     elif isinstance(attach, VideoAttach):
         logger.info(f"attach in {msg_id} from {chat_id} recognized as VideoAttach")
@@ -77,15 +84,17 @@ async def prepare_media_item(max_client, chat_id, msg_id, attach, session):
         async with session.get(video.url) as resp:
             logger.info(video.url)
             logger.info(HEADERS)
-            bio = io.BytesIO(await resp.read())
-            bio.name = get_file_name(resp, attach.video_id)
+            file_bytes = await resp.read()
+            bio = io.BytesIO(file_bytes)
+            bio.name = get_file_name(resp, file_bytes, attach.video_id, ".mp4")
             return InputMediaVideo(bio), bio
     elif isinstance(attach, FileAttach):
         logger.info(f"attach in {msg_id} from {chat_id} recognized as FileAttach")
         file = await max_client.get_file_by_id(chat_id, msg_id, attach.file_id)
         async with session.get(file.url) as resp:
-            bio = io.BytesIO(await resp.read())
-            bio.name = get_file_name(resp, attach.file_id)
+            file_bytes = await resp.read()
+            bio = io.BytesIO(file_bytes)
+            get_file_name(resp, file_bytes, attach.file_id, ".pdf")
             return InputMediaDocument(bio), bio
     else:
         logger.info(f"attach in {msg_id} from {chat_id} not recognized")
