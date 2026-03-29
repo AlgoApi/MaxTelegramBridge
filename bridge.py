@@ -7,7 +7,7 @@ from pyrogram import Client as PyroClient, filters as tg_filters
 import aiohttp
 from pymax import types as max_types
 from pymax.static.enum import MessageStatus
-from pymax.types import AudioAttach
+from pymax.types import AudioAttach, User, Name, Names
 from pyrogram.handlers import MessageHandler as TG_MessageHandler
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, InputMediaDocument
 
@@ -57,15 +57,16 @@ from pyrogram import filters
 
 async def fetch_history(client: PyroClient, message):
     cmd_args = message.command
-    if len(cmd_args) < 2:
-        await message.reply_text("❌ Использование: `/fetch <max_chat_id>`")
+    if len(cmd_args) < 3:
+        logger.error("Usage: /fetch <max_chat_id> <limit>")
         return
 
     try:
         max_chat_id = int(cmd_args[1])
+        limit = int(cmd_args[2])
         logger.info(f"fetching last 10 message from {max_chat_id}")
 
-        history = await max_client.fetch_history(max_chat_id, backward=10)
+        history = await max_client.fetch_history(max_chat_id, backward=limit)
 
         if not history:
             logger.info("messages not found or max_chat_id invalid")
@@ -74,18 +75,23 @@ async def fetch_history(client: PyroClient, message):
         for msg in history:
             msg.chat_id = max_chat_id
             await on_new_message(msg)
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(2)
 
         logger.info(f"forwarded {len(history)} messages")
 
-    except ValueError:
+    except ValueError as e:
         logger.error(f"invalid max_chat_id {e}")
     except Exception as e:
         logger.error(f"error on fetch: {e}")
 
 @max_client.on_message()
 async def on_new_message(message: max_types.Message):
-    msg_user = await max_client.get_user(message.sender)
+    if message.sender:
+        msg_user = await max_client.get_user(message.sender)
+    else:
+        chat_obj = await max_client.get_chat(message.chat_id)
+        msg_user = User(0, 0, message.chat_id, [Names(chat_obj.title, None, None, None)])
+        del chat_obj
     logger.info(f"got message {message.id} from {msg_user.id} in {message.chat_id}")
     if msg_user.id == CURRENT_MAX_USERID:
         logger.info("this message is message from owner, skip...")
@@ -176,7 +182,6 @@ async def on_new_message(message: max_types.Message):
         except Exception as e:
             logger.error(f"Error message send message: {e}")
 
-    # Сохраняем связку в Redis для будущего Edit/Delete
     if sent_messages:
         logger.info(f"save message mappings")
         await msg_map.save_mapping(message.chat_id, message.id, sent_messages)
@@ -188,11 +193,11 @@ async def on_start() -> None:
     try:
         await tg_app.get_chat(TG_CHANNEL_MAIN)
     except Exception as e:
-        logger.error(f"Cannot resolve TG_CHANNEL_MAIN: {e}\n Try send random message to chanel")
+        logger.error(f"Cannot resolve TG_CHANNEL_MAIN, Try send random message to chanel: {e}")
     try:
         await tg_app.get_chat(TG_CHANNEL_SPECIFIC)
     except Exception as e:
-        logger.error(f"Cannot resolve TG_CHANNEL_SPECIFIC: {e}\n Try send random message to chanel")
+        logger.error(f"Cannot resolve TG_CHANNEL_SPECIFIC, Try send random message to chanel: {e} ")
 
 
 async def start_bridge():
@@ -201,7 +206,7 @@ async def start_bridge():
 
     try:
         tg_app.add_handler(TG_MessageHandler(whoami, tg_filters.command("whoami")))
-        tg_app.add_handler(MessageHandler(fetch_history, filters.command("fetch") & filters.user(907467694)))
+        tg_app.add_handler(MessageHandler(fetch_history, filters.command("fetch") & filters.user(CURRENT_MAX_USERID)))
         await tg_app.start()
     except Exception as e:
         logger.error(f"Error in telegram bot: {e}")

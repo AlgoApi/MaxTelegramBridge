@@ -62,7 +62,7 @@
 Настрой файлы для доступа к API:
 
 ```env
-MAX_PHONE=
+CURRENT_MAX_USERID=ваш id из Макса, пишется при запуске
 MAX_PHONE=ваш номер телефона слитно без плюса
 REDIS_HOST=
 REDIS_PASSWORD=
