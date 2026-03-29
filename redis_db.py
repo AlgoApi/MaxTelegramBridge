@@ -3,8 +3,8 @@ import os
 import redis.asyncio as redis
 
 class RedisMapping:
-    def __init__(self, host='localhost', port=6379, db=0):
-        self.client = redis.Redis(host=host, port=port, db=db, decode_responses=True)
+    def __init__(self, host='localhost', port=6379, password='0', db=0):
+        self.client = redis.Redis(host=host, port=port, db=db, decode_responses=True, password=password)
         self.ttl = 86400  # 24 часа
 
     async def save_mapping(self, max_chat_id, max_msg_id, tg_msg_ids: list):
@@ -20,4 +20,4 @@ class RedisMapping:
         return None
 
 # Инициализируем в главном файле
-msg_map = RedisMapping(host=os.getenv("REDIS_HOST", "localhost"))
+msg_map = RedisMapping(host=os.getenv("REDIS_HOST", "localhost"), password=os.getenv("REDIS_PASSWORD", '0'))
