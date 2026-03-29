@@ -18,11 +18,11 @@ async def get_routing_info(max_client: MaxClient, msg: max_types.Message):
     sender = msg.sender
 
     # Определяем префикс в зависимости от типа чата
-    if chat.type == "CHAT":
+    if chat.type == "DIALOG":
         prefix = f"👤 <b>ЛС от: {sender}</b>\n\n"
         return TG_CHANNEL_MAIN, prefix
 
-    elif chat.type == "DIALOG":
+    elif chat.type == "CHAT":
         prefix = f"👥 <b>Группа: {chat.title}</b>\n👤 <b>{sender}</b>:\n\n"
         target = TG_CHANNEL_SPECIFIC if chat_id in SPECIFIC_MAX_GROUPS else TG_CHANNEL_MAIN
         return target, prefix
