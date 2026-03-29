@@ -2,6 +2,9 @@ FROM ghcr.io/astral-sh/uv:python3.12-alpine AS builder
 
 WORKDIR /app
 
+RUN apk add --no-cache git
+# --------------------------
+
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 
