@@ -72,6 +72,7 @@ async def fetch_history(client: PyroClient, message):
             return
 
         for msg in reversed(history):
+            msg.chat_id = max_chat_id
             await on_new_message(msg)
             await asyncio.sleep(0.5)
 
