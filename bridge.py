@@ -16,34 +16,34 @@ logger = logging.getLogger("MaxTelegramBridge")
 
 
 @max_client.on_message()
-async def on_new_message(client: MaxClient, msg: max_types.Message):
-    target_channel, prefix = get_routing_info(client, msg)
+async def on_new_message(client: MaxClient, message: max_types.Message):
+    target_channel, prefix = get_routing_info(client, message)
 
-    if msg.status == MessageStatus.REMOVED:
-        tg_ids = await msg_map.get_mapping(msg.chat_id, msg.id)
+    if message.status == MessageStatus.REMOVED:
+        tg_ids = await msg_map.get_mapping(message.chat_id, message.id)
         if tg_ids:
             await tg_app.delete_messages(target_channel, tg_ids)
-            logger.info(f"Сообщение {msg.id} удалено в TG")
+            logger.info(f"Сообщение {message.id} удалено в TG")
         return
 
-    if msg.status == MessageStatus.EDITED:
-        tg_ids = await msg_map.get_mapping(msg.chat_id, msg.id)
+    if message.status == MessageStatus.EDITED:
+        tg_ids = await msg_map.get_mapping(message.chat_id, message.id)
         if tg_ids:
-            new_text = f"{prefix}{msg.text or ''}"
+            new_text = f"{prefix}{message.text or ''}"
             try:
                 await tg_app.edit_message_text(target_channel, tg_ids[0], new_text)
             except Exception:
                 await tg_app.edit_message_caption(target_channel, tg_ids[0], new_text)
         return
 
-    full_text = f"{prefix}{msg.text or ''}"
+    full_text = f"{prefix}{message.text or ''}"
     sent_messages = []
 
-    if msg.attaches:
+    if message.attaches:
         media_list = []
         async with aiohttp.ClientSession() as session:
-            for attach in msg.attaches:
-                media = await prepare_media_item(max_client, msg.chat_id, msg.id, attach, session)
+            for attach in message.attaches:
+                media = await prepare_media_item(max_client, message.chat_id, message.id, attach, session)
                 if media:
                     media_list.append(media)
 
@@ -58,7 +58,7 @@ async def on_new_message(client: MaxClient, msg: max_types.Message):
 
     # Сохраняем связку в Redis для будущего Edit/Delete
     if sent_messages:
-        await msg_map.save_mapping(msg.chat_id, msg.id, sent_messages)
+        await msg_map.save_mapping(message.chat_id, message.id, sent_messages)
 
 
 @max_client.on_start
