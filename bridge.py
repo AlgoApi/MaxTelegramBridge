@@ -78,7 +78,7 @@ async def fetch_history(client: PyroClient, message):
         logger.info(f"forwarded {len(history)} messages")
 
     except ValueError:
-        logger.error("invalid max_chat_id")
+        logger.error(f"invalid max_chat_id {e}")
     except Exception as e:
         logger.error(f"error on fetch: {e}")
 
