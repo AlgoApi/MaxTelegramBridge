@@ -64,7 +64,7 @@ async def fetch_history(client: PyroClient, message):
     try:
         max_chat_id = int(cmd_args[1])
         limit = int(cmd_args[2])
-        logger.info(f"fetching last 10 message from {max_chat_id}")
+        logger.info(f"fetching last {limit} message from {max_chat_id}")
 
         history = await max_client.fetch_history(max_chat_id, backward=limit)
 
