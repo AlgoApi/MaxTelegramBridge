@@ -204,6 +204,7 @@ async def start_bridge():
         await tg_app.start()
     except Exception as e:
         logger.error(f"Error in telegram bot: {e}")
+        return  
     logger.info("telegram bot started.")
 
     try:
