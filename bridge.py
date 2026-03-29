@@ -44,11 +44,11 @@ async def whoami(client: PyroClient, message):
     try:
         await tg_app.get_chat(TG_CHANNEL_MAIN)
     except Exception as e:
-        logger.error(f"Cannot resolve TG_CHANNEL_MAIN: {e}\n Try send random message to chanel")
+        logger.error(f"Cannot resolve TG_CHANNEL_MAIN Try send random message to chanel: {e}")
     try:
         await tg_app.get_chat(TG_CHANNEL_SPECIFIC)
     except Exception as e:
-        logger.error(f"Cannot resolve TG_CHANNEL_SPECIFIC: {e}\n Try send random message to chanel")
+        logger.error(f"Cannot resolve TG_CHANNEL_SPECIFIC Try send random message to chanel: {e}")
 
 
 from pyrogram.handlers import MessageHandler
