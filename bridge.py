@@ -137,7 +137,7 @@ async def on_new_message(message: max_types.Message):
                     except Exception as e:
                         logger.error(f"error download voice: {e}")
                 else:
-                    media = await prepare_media_item(max_client, message.chat_id, message.chat_id, attach, session)
+                    media = await prepare_media_item(max_client, message.chat_id, message.id, attach, session)
                     if media:
                         media, data = media
                         media_list_data.append(data)
