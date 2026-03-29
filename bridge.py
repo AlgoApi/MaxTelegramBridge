@@ -12,7 +12,7 @@ from pyrogram.handlers import MessageHandler as TG_MessageHandler
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, InputMediaDocument
 
 from config import CURRENT_MAX_USERID, SUPPORTED_ATTACHES, TG_CHANNEL_MAIN, TG_CHANNEL_SPECIFIC, TG_API_ID, TG_API_HASH, \
-    TG_BOT_TOKEN, HEADERS
+    TG_BOT_TOKEN, HEADERS, TG_ADMIN_USERID
 from init_clients import max_client
 
 from redis_db import msg_map
@@ -205,7 +205,7 @@ async def start_bridge():
 
     try:
         tg_app.add_handler(TG_MessageHandler(whoami, tg_filters.command("whoami")))
-        tg_app.add_handler(MessageHandler(fetch_history, filters.command("fetch") & filters.user(CURRENT_MAX_USERID)))
+        tg_app.add_handler(MessageHandler(fetch_history, filters.command("fetch") & filters.user(TG_ADMIN_USERID)))
         await tg_app.start()
     except Exception as e:
         logger.error(f"Error in telegram bot: {e}")

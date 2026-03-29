@@ -1,6 +1,6 @@
-import os
-
 import redis.asyncio as redis
+from config import REDIS_HOST, REDIS_PASSWORD
+
 
 class RedisMapping:
     def __init__(self, password, host='localhost', port=6379, db=0):
@@ -19,5 +19,4 @@ class RedisMapping:
             return list(map(int, data.split(",")))
         return None
 
-# Инициализируем в главном файле
-msg_map = RedisMapping(host=os.getenv("REDIS_HOST", "localhost"), password=os.getenv("REDIS_PASSWORD"))
+msg_map = RedisMapping(host=REDIS_HOST, password=REDIS_PASSWORD)

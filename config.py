@@ -5,7 +5,11 @@ from pymax import PhotoAttach, VideoAttach, FileAttach
 from pymax.types import AudioAttach
 
 CURRENT_MAX_USERID = int(os.getenv("CURRENT_MAX_USERID", "0"))
+TG_ADMIN_USERID = int(os.getenv("TG_ADMIN_USERID", "0"))
 MAX_PHONE = os.getenv("MAX_PHONE", "")
+
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 
 TG_API_ID = int(os.getenv("TG_API_ID", "0"))
 TG_API_HASH = os.getenv("TG_API_HASH", "")
