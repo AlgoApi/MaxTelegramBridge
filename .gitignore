@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+.idea
+sessions/*
+!sessions/.gitkeep
+*.session
+
 # Distribution / packaging
 .Python
 build/

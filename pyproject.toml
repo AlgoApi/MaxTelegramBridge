@@ -1,0 +1,17 @@
+[project]
+name = "maxtelegrambridge"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "maxapi-python",
+    "pyrogram>=2.0.106",
+    "qrcode>=8.2",
+    "redis>=7.4.0",
+    "requests>=2.33.0",
+    "tgcrypto>=1.2.5",
+]
+
+[tool.uv.sources]
+maxapi-python = { git = "https://github.com/MaxApiTeam/PyMax.git", rev = "dev/1.2.6" }

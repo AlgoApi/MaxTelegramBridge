@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  max_bridge:
+    build: .
+    container_name: max_tg_bridge
+    restart: unless-stopped
+    environment:
+      - TG_API_ID=1234567 # Твой API ID от my.telegram.org
+      - TG_API_HASH=твой_api_hash # Твой API Hash
+      - TG_BOT_TOKEN=токен_твоего_бота # Токен от BotFather
+      - TG_CHANNEL_MAIN=-1000000000001  # ID первого канала (общий)
+      - TG_CHANNEL_SPECIFIC=-1000000000002 # ID второго канала (VIP)
+      - SPECIFIC_MAX_GROUPS=group_id_1,group_id_2
+      - SPECIFIC_MAX_CHANNELS=channel_id_1,channel_id_2
+    volumes:
+      # Сохранение сессии, чтобы не сканировать QR каждый раз при перезапуске
+      - ./sessions:/app/sessions
