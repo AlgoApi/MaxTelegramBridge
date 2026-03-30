@@ -66,7 +66,7 @@ def get_file_name(resp, file_bytes, file_id, fallback_extension:str):
     else:
         logger.info("cannot guess extension for {file_id}")
         ext = fallback_extension
-    return "{clean_name}{ext}"
+    return f"{clean_name}{ext}"
 
 async def prepare_media_item(max_client, chat_id, msg_id, attach, session):
     if isinstance(attach, PhotoAttach):
