@@ -54,20 +54,18 @@ async def get_routing_info(max_client: MaxClient, msg: max_types.Message, user: 
     return TG_CHANNEL_MAIN, "❓ <b>Источник неизвестен</b>\n\n"
 
 def get_file_name(resp, file_bytes, file_id, fallback_extension:str):
-    raw_name = resp.headers.get("X-File-Name")
+    raw_name = resp.headers.get("X-File-Name", f"file_{file_id}")
     clean_name = ""
-    if raw_name:
-        clean_name = unquote(raw_name)
+    
+    clean_name = unquote(raw_name)
+    
+    kind = filetype.guess(file_bytes)
+    if kind:
+        ext = f".{kind.extension}"
     else:
-        kind = filetype.guess(file_bytes)
-        if kind:
-            ext = f".{kind.extension}"
-        else:
-            ext = fallback_extension
+        ext = fallback_extension
 
-        clean_name = f"file_{file_id}{ext}"
-
-    return clean_name
+    return "{clean_name}{ext}"
 
 async def prepare_media_item(max_client, chat_id, msg_id, attach, session):
     if isinstance(attach, PhotoAttach):
