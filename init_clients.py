@@ -2,8 +2,6 @@ import logging
 import pymax.mixins as mixins
 import qrcode
 
-from config import TG_API_ID, TG_BOT_TOKEN, TG_API_HASH
-
 logger = logging.getLogger("MaxTelegramBridge")
 
 def _logged_print_qr(self, qr_link: str):

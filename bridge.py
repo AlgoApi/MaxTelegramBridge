@@ -1,22 +1,20 @@
 import asyncio
 import io
 import logging
-from typing import Union, List
+from typing import List
 
-from pyrogram import Client as PyroClient, filters as tg_filters
-import aiohttp
 from pymax import types as max_types
 from pymax.static.enum import MessageStatus
-from pymax.types import AudioAttach, User, Name, Names
+from pymax.types import User, Names
+from pyrogram import Client as PyroClient, filters as tg_filters
 from pyrogram.handlers import MessageHandler as TG_MessageHandler
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, InputMediaDocument
 
 from config import CURRENT_MAX_USERID, SUPPORTED_ATTACHES, TG_CHANNEL_MAIN, TG_CHANNEL_SPECIFIC, TG_API_ID, TG_API_HASH, \
     TG_BOT_TOKEN, TG_ADMIN_USERID
 from init_clients import max_client
-
 from redis_db import msg_map
-from utils import get_routing_info, prepare_media_item, download_attaches, TGInputMediaBIO
+from utils import get_routing_info, download_attaches
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("MaxTelegramBridge")
