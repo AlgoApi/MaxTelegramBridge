@@ -12,11 +12,11 @@ from pyrogram.handlers import MessageHandler as TG_MessageHandler
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, InputMediaDocument
 
 from config import CURRENT_MAX_USERID, SUPPORTED_ATTACHES, TG_CHANNEL_MAIN, TG_CHANNEL_SPECIFIC, TG_API_ID, TG_API_HASH, \
-    TG_BOT_TOKEN, HEADERS, TG_ADMIN_USERID
+    TG_BOT_TOKEN, TG_ADMIN_USERID
 from init_clients import max_client
 
 from redis_db import msg_map
-from utils import get_routing_info, prepare_media_item
+from utils import get_routing_info, prepare_media_item, download_attaches, TGInputMediaBIO
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("MaxTelegramBridge")
@@ -121,58 +121,56 @@ async def on_new_message(message: max_types.Message):
     sent_messages = []
 
     if message.attaches and any(isinstance(a, SUPPORTED_ATTACHES) for a in message.attaches):
-        media_list: List[Union[InputMediaPhoto, InputMediaVideo, InputMediaDocument]] = []
-        media_list_data: List[io.BytesIO] = []
-        voice_list = []
-        async with aiohttp.ClientSession(headers=HEADERS) as session:
-            for attach in message.attaches:
-                if isinstance(attach, AudioAttach):
-                    try:
-                        async with session.get(attach.url) as resp:
-                            resp.raise_for_status()
-                            bio = io.BytesIO(await resp.read())
+        media_list_bio: List[io.BytesIO]
+        media_list: List[InputMediaPhoto,InputMediaVideo, InputMediaDocument]
+        voice_list: List[io.BytesIO]
 
-                            bio.name = f"voice{attach.audio_id}.ogg"
-                            voice_list.append(bio)
-                    except Exception as e:
-                        logger.error(f"error download voice: {e}")
-                else:
-                    media = await prepare_media_item(max_client, message.chat_id, message.id, attach, session)
-                    if media:
-                        media, data = media
-                        media_list_data.append(data)
-                        media_list.append(media)
+        media_list_bio, media_list, voice_list = await download_attaches(max_client, message.chat_id, message.id, message.attaches)
 
         if media_list:
             logger.info(f"detected media in message {message.id} in {message.chat_id}")
             logger.debug(media_list)
             try:
-                media_list[0].caption = full_text
-                res = await tg_app.send_media_group(target_channel, media_list[:10])
-                sent_messages = [m.id for m in res]
-            except Exception as e:
-                logger.error(f"Error send media {media_list[:10]}: {e}")
-            finally:
-                for media in media_list_data:
-                    if not media.closed:
-                        media.close()
-            logger.info(f"message send_media_group to telegram {sent_messages}")
+                for i in range(0, len(media_list), 10):
+                    media_batch = media_list[i:i + 10]
+                    try:
+                        media_list[0].caption = full_text
+                        res = await tg_app.send_media_group(target_channel, media_batch)
+                        sent_messages.extend([m.id for m in res])
+                        logger.info(f"message send_media_group to telegram {sent_messages}")
+                    except Exception as e:
+                        logger.error(f"Error send media {media_batch}: {e}")
+                        logger.info("Attempting fallback to InputMediaDocument...")
+                        try:
+                            doc_media = []
+                            for m in media_batch:
+                                doc_media.append(InputMediaDocument(m.media, caption=m.caption))
 
-        for voice_bio in voice_list:
-            try:
-                res = await tg_app.send_voice(
-                    chat_id=target_channel,
-                    voice=voice_bio,
-                    caption=full_text
-                )
-                sent_messages.append(res.id)
-                logger.info(f"message send_voice to telegram {res.id}")
-                full_text = ""
-            except Exception as e:
-                logger.error(f"Error send voice message: {e}")
+                            res = await tg_app.send_media_group(target_channel, doc_media)
+                            sent_messages.extend([m.id for m in res])
+                            logger.info(f"message send_media_group all documents to telegram {sent_messages}")
+                        except Exception as e_inner:
+                            logger.error(f"Fallback failed: {e_inner}")
             finally:
-                if not voice_bio.closed:
-                    voice_bio.close()
+                for bio in media_list_bio:
+                    if not bio.closed:
+                        bio.close()
+        if voice_list:
+            for audio in voice_list:
+                try:
+                    res = await tg_app.send_voice(
+                        chat_id=target_channel,
+                        voice=audio,
+                        caption=full_text
+                    )
+                    sent_messages.append(res.id)
+                    logger.info(f"message send_voice to telegram {res.id}")
+                    full_text = ""
+                except Exception as e:
+                    logger.error(f"Error send voice message: {e}")
+                finally:
+                    if not audio.closed:
+                        audio.close()
     else:
         try:
             res = await tg_app.send_message(target_channel, full_text, disable_web_page_preview=True)
