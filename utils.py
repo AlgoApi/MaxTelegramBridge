@@ -58,7 +58,7 @@ async def download_attaches(max_client: MaxClient, chat_id:int, msg_id:int, atta
                 except Exception as e:
                     logger.error(f"error download voice: {e}")
             else:
-                media = await prepare_media_item(max_client, chat_id, msg_id, attach, session, current_headers)
+                media = await prepare_media_item(max_client, chat_id, msg_id, attach, session)
                 if media:
                     input_media, bio = media
                     media_list.append(input_media)
@@ -125,10 +125,12 @@ def get_file_name(resp, file_bytes, file_id, fallback_extension:str):
         ext = ".jpg"
     return f"{clean_name}{ext}"
 
-async def prepare_media_item(max_client, chat_id, msg_id, attach, session, current_headers):
+async def prepare_media_item(max_client, chat_id, msg_id, attach, session):
     if isinstance(attach, PhotoAttach):
         logger.info(f"attach in {msg_id} from {chat_id} recognized as PhotoAttach")
-        async with session.get(attach.base_url, headers=current_headers) as resp:
+        url = attach.base_url
+        current_headers = get_headers_for_max(url)
+        async with session.get(url, headers=current_headers) as resp:
             file_bytes = await resp.read()
             bio = io.BytesIO(file_bytes)
             bio.name = get_file_name(resp, file_bytes, attach.photo_id, ".jpg")
@@ -137,7 +139,10 @@ async def prepare_media_item(max_client, chat_id, msg_id, attach, session, curre
         logger.info(f"attach in {msg_id} from {chat_id} recognized as VideoAttach")
         video = await max_client.get_video_by_id(chat_id, msg_id, attach.video_id)
         logger.info(f"video.url {video.url}")
-        async with session.get(video.url, headers=current_headers) as resp:
+        url = video.url
+        current_headers = get_headers_for_max(url)
+        logger.info(f"current headers: {current_headers}")
+        async with session.get(url, headers=current_headers) as resp:
             file_bytes = await resp.read()
             bio = io.BytesIO(file_bytes)
             bio.name = get_file_name(resp, file_bytes, attach.video_id, ".mp4")
@@ -145,7 +150,9 @@ async def prepare_media_item(max_client, chat_id, msg_id, attach, session, curre
     elif isinstance(attach, FileAttach):
         logger.info(f"attach in {msg_id} from {chat_id} recognized as FileAttach")
         file = await max_client.get_file_by_id(chat_id, msg_id, attach.file_id)
-        async with session.get(file.url, headers=current_headers) as resp:
+        url = file.url
+        current_headers = get_headers_for_max(url)
+        async with session.get(url, headers=current_headers) as resp:
             file_bytes = await resp.read()
             bio = io.BytesIO(file_bytes)
             bio.name = get_file_name(resp, file_bytes, attach.file_id, ".pdf")
