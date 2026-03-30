@@ -18,9 +18,7 @@ from init_clients import max_client
 from redis_db import msg_map
 from utils import get_routing_info, prepare_media_item
 
-logging.getLogger("pyrogram").setLevel(logging.INFO)
-
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("MaxTelegramBridge")
 
 tg_app: PyroClient
