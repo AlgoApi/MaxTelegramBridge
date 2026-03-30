@@ -92,8 +92,8 @@ async def prepare_media_item(max_client, chat_id, msg_id, attach, session):
         async with session.get(file.url) as resp:
             file_bytes = await resp.read()
             bio = io.BytesIO(file_bytes)
-            get_file_name(resp, file_bytes, attach.file_id, ".pdf")
-            return InputMediaDocument(bio), bio
+            bio.name = get_file_name(resp, file_bytes, attach.file_id, ".pdf")
+            return InputMediaDocument(bio, file_name=bio.name), bio
     else:
         logger.info(f"attach in {msg_id} from {chat_id} not recognized")
     return None
