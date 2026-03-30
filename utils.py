@@ -16,17 +16,20 @@ from config import TG_CHANNEL_MAIN, SPECIFIC_MAX_GROUPS, TG_CHANNEL_SPECIFIC, SP
 
 logger = logging.getLogger("MaxTelegramBridge")
 
+
 def get_headers_for_max(url: str):
     parsed_url = urlparse(url)
     params = parse_qs(parsed_url.query)
     src_ag = params.get('srcAg', [''])[0].upper()
 
-    if any(x in src_ag for x in ["SAFARI", "MACOS"]):
+    if "IPHONE" in src_ag:
+        ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+    elif "ANDROID" in src_ag:
+        ua = "Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36"
+    elif "SAFARI" in src_ag or "MACOS" in src_ag:
         ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
-
-    elif any(x in src_ag for x in ["UBUNTU", "FEDORA", "DEBIAN"]):
+    elif any(x in src_ag for x in ["UBUNTU", "FEDORA", "DEBIAN", "LINUX"]):
         ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-
     else:
         ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
 
