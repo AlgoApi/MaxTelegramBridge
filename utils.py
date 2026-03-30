@@ -64,7 +64,7 @@ def get_file_name(resp, file_bytes, file_id, fallback_extension:str):
         logger.info(f"guess {file_id} extension: {kind.extension}")
         ext = f".{kind.extension}"
     else:
-        logger.info("cannot guess extension for {file_id})
+        logger.info("cannot guess extension for {file_id}")
         ext = fallback_extension
     return "{clean_name}{ext}"
 
