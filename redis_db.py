@@ -9,7 +9,6 @@ class RedisMapping:
 
     async def save_mapping(self, max_chat_id, max_msg_id, tg_msg_ids: list):
         key = f"msg_map:{max_chat_id}:{max_msg_id}"
-        # Сохраняем ID сообщений Telegram через запятую
         await self.client.set(key, ",".join(map(str, tg_msg_ids)), ex=self.ttl)
 
     async def get_mapping(self, max_chat_id, max_msg_id):
