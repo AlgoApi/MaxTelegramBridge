@@ -3,6 +3,7 @@ import io
 import logging
 from typing import List
 
+import sys
 from pymax import types as max_types
 from pymax.static.enum import MessageStatus
 from pymax.types import User, Names
@@ -20,6 +21,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger("MaxTelegramBridge")
 
 tg_app: PyroClient
+SHUTDOWN_INTERVAL = 3 * 60 * 60
+
+class GracefulShutdown(Exception):
+    pass
+
+async def shutdown_timer():
+    await asyncio.sleep(SHUTDOWN_INTERVAL)
+    raise GracefulShutdown()
 
 async def whoami(client: PyroClient, message):
     chat = message.chat
@@ -208,11 +217,27 @@ async def start_bridge():
         return  
     logger.info("telegram bot started.")
 
+    shutdown_task = asyncio.create_task(shutdown_timer())
+
     try:
-        await max_client.start()
+        await asyncio.wait(
+            [
+                asyncio.create_task(max_client.start()),
+                shutdown_task
+            ],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+    except GracefulShutdown:
+        logger.info("rebooting")
     except Exception as e:
         logger.error(f"Error in Max UserBot: {e}")
     finally:
+        if not shutdown_task.done():
+            shutdown_task.cancel()
+            try:
+                await shutdown_task
+            except asyncio.CancelledError:
+                pass
         logger.info("Try to close telegram bot safely")
         await tg_app.stop()
         await asyncio.sleep(3)
@@ -222,4 +247,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(start_bridge())
     except KeyboardInterrupt:
+        pass
+    except GracefulShutdown:
         pass
