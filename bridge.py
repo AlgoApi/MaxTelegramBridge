@@ -11,24 +11,38 @@ from pyrogram import Client as PyroClient, filters as tg_filters
 from pyrogram.handlers import MessageHandler as TG_MessageHandler
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, InputMediaDocument
 
-from config import CURRENT_MAX_USERID, SUPPORTED_ATTACHES, TG_CHANNEL_MAIN, TG_CHANNEL_SPECIFIC, TG_API_ID, TG_API_HASH, \
-    TG_BOT_TOKEN, TG_ADMIN_USERID
+from config import (
+    CURRENT_MAX_USERID,
+    SUPPORTED_ATTACHES,
+    TG_CHANNEL_MAIN,
+    TG_CHANNEL_SPECIFIC,
+    TG_API_ID,
+    TG_API_HASH,
+    TG_BOT_TOKEN,
+    TG_ADMIN_USERID,
+)
 from init_clients import max_client
 from redis_db import msg_map
 from utils import get_routing_info, download_attaches
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger("MaxTelegramBridge")
 
 tg_app: PyroClient
 SHUTDOWN_INTERVAL = 3 * 60 * 60
+MAX_CAPTION_LENGTH = 1024
+
 
 class GracefulShutdown(Exception):
     pass
 
+
 async def shutdown_timer():
     await asyncio.sleep(SHUTDOWN_INTERVAL)
     raise GracefulShutdown()
+
 
 async def whoami(client: PyroClient, message):
     chat = message.chat
@@ -51,11 +65,15 @@ async def whoami(client: PyroClient, message):
     try:
         await tg_app.get_chat(TG_CHANNEL_MAIN)
     except Exception as e:
-        logger.error(f"Cannot resolve TG_CHANNEL_MAIN Try send random message to chanel: {e}")
+        logger.error(
+            f"Cannot resolve TG_CHANNEL_MAIN Try send random message to chanel: {e}"
+        )
     try:
         await tg_app.get_chat(TG_CHANNEL_SPECIFIC)
     except Exception as e:
-        logger.error(f"Cannot resolve TG_CHANNEL_SPECIFIC Try send random message to chanel: {e}")
+        logger.error(
+            f"Cannot resolve TG_CHANNEL_SPECIFIC Try send random message to chanel: {e}"
+        )
 
 
 from pyrogram.handlers import MessageHandler
@@ -91,25 +109,32 @@ async def fetch_history(client: PyroClient, message):
     except Exception as e:
         logger.error(f"error on fetch: {e}")
 
+
 @max_client.on_message()
 async def on_new_message(message: max_types.Message):
     chat_obj = await max_client.get_chat(message.chat_id)
     if message.sender:
         msg_user = await max_client.get_user(message.sender)
     else:
-        msg_user = User(0, 0, message.chat_id, [Names(chat_obj.title, None, None, None)])
+        msg_user = User(
+            0, 0, message.chat_id, [Names(chat_obj.title, None, None, None)]
+        )
     logger.info(f"got message {message.id} from {msg_user.id} in {message.chat_id}")
     if msg_user.id == CURRENT_MAX_USERID:
         logger.info("this message is message from owner, skip...")
         return
-    target_channel, prefix = await get_routing_info(max_client, message, msg_user, chat_obj)
+    target_channel, prefix = await get_routing_info(
+        max_client, message, msg_user, chat_obj
+    )
 
     if message.status == MessageStatus.REMOVED:
         logger.info(f"get mappings for {message.chat_id} in {message.id} for delete")
         tg_ids = await msg_map.get_mapping(message.chat_id, message.id)
         if tg_ids:
             await tg_app.delete_messages(target_channel, tg_ids)
-            logger.info(f"Message {message.id} in {message.chat_id} deleted in telegram")
+            logger.info(
+                f"Message {message.id} in {message.chat_id} deleted in telegram"
+            )
         return
 
     if message.status == MessageStatus.EDITED:
@@ -121,41 +146,79 @@ async def on_new_message(message: max_types.Message):
                 await tg_app.edit_message_text(target_channel, tg_ids[0], new_text)
             except Exception:
                 await tg_app.edit_message_caption(target_channel, tg_ids[0], new_text)
-            logger.info(f"Message {message.id} in {message.chat_id} redacted in telegram")
+            logger.info(
+                f"Message {message.id} in {message.chat_id} redacted in telegram"
+            )
         return
 
     full_text = f"{prefix}{message.text or ''}"
     sent_messages = []
 
-    if message.attaches and any(isinstance(a, SUPPORTED_ATTACHES) for a in message.attaches):
+    if message.attaches and any(
+        isinstance(a, SUPPORTED_ATTACHES) for a in message.attaches
+    ):
         media_list_bio: List[io.BytesIO]
-        media_list: List[InputMediaPhoto,InputMediaVideo, InputMediaDocument]
+        media_list: List[InputMediaPhoto, InputMediaVideo, InputMediaDocument]
         voice_list: List[io.BytesIO]
 
-        media_list_bio, media_list, voice_list = await download_attaches(max_client, message.chat_id, message.id, message.attaches)
+        media_list_bio, media_list, voice_list = await download_attaches(
+            max_client, message.chat_id, message.id, message.attaches
+        )
 
         if media_list:
             logger.info(f"detected media in message {message.id} in {message.chat_id}")
             logger.debug(media_list)
             try:
                 for i in range(0, len(media_list), 10):
-                    media_batch = media_list[i:i + 10]
+                    media_batch = media_list[i : i + 10]
+                    parts = []
                     try:
-                        media_list[0].caption = full_text
+                        if len(full_text) > MAX_CAPTION_LENGTH:
+                            current_part = ""
+                            for word in full_text.split():
+                                if len(current_part + " " + word) > MAX_CAPTION_LENGTH:
+                                    parts.append(current_part)
+                                    current_part = word
+                                else:
+                                    current_part += " " + word if current_part else word
+                            parts.append(current_part)
+
+                            media_list[0].caption = parts[0]
+                        else:
+                            media_list[0].caption = full_text
                         res = await tg_app.send_media_group(target_channel, media_batch)
+                        for i in range(1, len(parts)):
+                            sent_msg = await tg_app.send_message(
+                                chat_id=target_channel, text=parts[i]
+                            )
+                            sent_messages.append(sent_msg.id)
+                        full_text = ""
                         sent_messages.extend([m.id for m in res])
-                        logger.info(f"message send_media_group to telegram {sent_messages}")
+                        logger.info(
+                            f"message send_media_group to telegram {sent_messages}"
+                        )
                     except Exception as e:
                         logger.error(f"Error send media {media_batch}: {e}")
                         logger.info("Attempting fallback to InputMediaDocument...")
                         try:
                             doc_media = []
                             for m in media_batch:
-                                doc_media.append(InputMediaDocument(m.media, caption=m.caption))
+                                doc_media.append(
+                                    InputMediaDocument(m.media, caption=m.caption)
+                                )
 
-                            res = await tg_app.send_media_group(target_channel, doc_media)
+                            res = await tg_app.send_media_group(
+                                target_channel, doc_media
+                            )
+                            for i in range(1, len(parts)):
+                                sent_msg = await tg_app.send_message(
+                                    chat_id=target_channel, text=parts[i]
+                                )
+                                sent_messages.append(sent_msg.id)
                             sent_messages.extend([m.id for m in res])
-                            logger.info(f"message send_media_group all documents to telegram {sent_messages}")
+                            logger.info(
+                                f"message send_media_group all documents to telegram {sent_messages}"
+                            )
                         except Exception as e_inner:
                             logger.error(f"Fallback failed: {e_inner}")
             finally:
@@ -166,9 +229,7 @@ async def on_new_message(message: max_types.Message):
             for audio in voice_list:
                 try:
                     res = await tg_app.send_voice(
-                        chat_id=target_channel,
-                        voice=audio,
-                        caption=full_text
+                        chat_id=target_channel, voice=audio, caption=full_text
                     )
                     sent_messages.append(res.id)
                     logger.info(f"message send_voice to telegram {res.id}")
@@ -180,7 +241,9 @@ async def on_new_message(message: max_types.Message):
                         audio.close()
     else:
         try:
-            res = await tg_app.send_message(target_channel, full_text, disable_web_page_preview=True)
+            res = await tg_app.send_message(
+                target_channel, full_text, disable_web_page_preview=True
+            )
             sent_messages = [res.id]
             logger.info(f"message send to telegram {res.id}")
         except Exception as e:
@@ -197,35 +260,45 @@ async def on_start() -> None:
     try:
         await tg_app.get_chat(TG_CHANNEL_MAIN)
     except Exception as e:
-        logger.error(f"Cannot resolve TG_CHANNEL_MAIN, Try send random message to chanel: {e}")
+        logger.error(
+            f"Cannot resolve TG_CHANNEL_MAIN, Try send random message to chanel: {e}"
+        )
     try:
         await tg_app.get_chat(TG_CHANNEL_SPECIFIC)
     except Exception as e:
-        logger.error(f"Cannot resolve TG_CHANNEL_SPECIFIC, Try send random message to chanel: {e} ")
+        logger.error(
+            f"Cannot resolve TG_CHANNEL_SPECIFIC, Try send random message to chanel: {e} "
+        )
 
 
 async def start_bridge():
     global tg_app
-    tg_app = PyroClient("sessions/tg_session", api_id=TG_API_ID, api_hash=TG_API_HASH, bot_token=TG_BOT_TOKEN)
+    tg_app = PyroClient(
+        "sessions/tg_session",
+        api_id=TG_API_ID,
+        api_hash=TG_API_HASH,
+        bot_token=TG_BOT_TOKEN,
+    )
 
     try:
         tg_app.add_handler(TG_MessageHandler(whoami, tg_filters.command("whoami")))
-        tg_app.add_handler(MessageHandler(fetch_history, filters.command("fetch") & filters.user(TG_ADMIN_USERID)))
+        tg_app.add_handler(
+            MessageHandler(
+                fetch_history, filters.command("fetch") & filters.user(TG_ADMIN_USERID)
+            )
+        )
         await tg_app.start()
     except Exception as e:
         logger.error(f"Error in telegram bot: {e}")
-        return  
+        return
     logger.info("telegram bot started.")
 
     shutdown_task = asyncio.create_task(shutdown_timer())
 
     try:
         await asyncio.wait(
-            [
-                asyncio.create_task(max_client.start()),
-                shutdown_task
-            ],
-            return_when=asyncio.FIRST_COMPLETED
+            [asyncio.create_task(max_client.start()), shutdown_task],
+            return_when=asyncio.FIRST_COMPLETED,
         )
     except GracefulShutdown:
         logger.info("rebooting")
